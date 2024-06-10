@@ -20,10 +20,10 @@ class User(BaseModel):
 
 
 
-# sign up
+# Регистрация пользователя
 @app.post("/users/sign-up")
 async def create_user(user: User):
-    # Получите всех пользователей из базы данных Supabase.
+    
     credentials = {
     "email": user.login,
     "password": user.password
@@ -33,7 +33,6 @@ async def create_user(user: User):
     try:
         user, session = supabase.auth.sign_up(credentials)
     except AuthApiError as e:
-        #print(AuthApiError.)
         return AuthApiError.to_dict(e)
 
     res = {'status': 200,
@@ -50,11 +49,10 @@ async def log_out():
     return {"status": 200}
 
 
+# Вход пользователя
 @app.post("/users/sign-in")
 async def get_user(user: User):
-    # Получите данные нового пользователя из запроса.
 
-    # Вставьте нового пользователя в базу данных Supabase.
     credentials = {
     "email": user.login,
     "password": user.password
@@ -64,7 +62,6 @@ async def get_user(user: User):
     try:
         user, session = supabase.auth.sign_in_with_password(credentials)
     except AuthApiError as e:
-        #print(AuthApiError.)
         return AuthApiError.to_dict(e)
 
     res = {'status': 200,
