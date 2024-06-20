@@ -1,7 +1,8 @@
 import os
+import json
 from dotenv import load_dotenv
 from supabase import create_client
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from gotrue.errors import AuthApiError
 from pydantic import BaseModel
 
@@ -12,6 +13,35 @@ key = os.environ.get("SUPABASE_KEY")
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 supabase = create_client(url, key)
+
+def json_reader(file_path):
+    with open(file_path, encoding="utf-8") as f:
+        json_res = json.load(f)
+    
+    return json_res
+
+json_signup = json_reader('./json_schemes/example_signup.json')
+json_signin = json_reader('./json_schemes/example_login.json')
+json_user = json_reader("./json_schemes/example_user.json")
+json_session = json_reader("./json_schemes/example_session.json")
+
+json_warning = json_reader("./json_schemes/example_warning.json")
+json_user_info = json_reader("./json_schemes/example_userInfo.json")
+json_get_zone = json_reader("./json_schemes/example_get_zone.json")
+
+class ErrorMessage(BaseModel):
+    detail: str
+
+
+responses_sign_up = {
+        400: {"model": ErrorMessage, "description": "Ошибка при попытке регистрации"},
+        200: json_signup
+    }
+
+responses_sign_in = {
+        400: {"model": ErrorMessage, "description": "Ошибка при попытке входа"},
+        200: json_signin
+    }
 
 app = FastAPI()
 
@@ -25,13 +55,13 @@ class warningZone(BaseModel):
     yCoord: float
     typeZone: str
     distance: float
-    secret_key: str
+    #secret_key: str
 
 
 class userPosition(BaseModel):
     xCoord: float
     yCoord: float
-    secret_key: str
+    #secret_key: str
 
 
 class userInfo(BaseModel):
@@ -40,12 +70,12 @@ class userInfo(BaseModel):
     xCoord: float
     yCoord: float
     allowedSpeed: float
-    secret_key: str
+    #secret_key: str
 
 
 
 # Регистрация пользователя
-@app.post("/users/sign-up")
+@app.post("/users/sign-up", responses=responses_sign_up)
 async def create_user(user: User):
     
     credentials = {
@@ -55,44 +85,50 @@ async def create_user(user: User):
     
     # TODO добавить обработку различных исключение при регистрации
     try:
-        #user, session = supabase.auth.sign_up(credentials)
         session = supabase.auth.sign_up(credentials)
     except AuthApiError as e:
-        return AuthApiError.to_dict(e)
-
-    #res = {'status': 200,
-    #       'user': user[1]}
+        raise HTTPException(status_code=400, detail=AuthApiError.to_dict(e)['message'])
     
     return session
-    #return res, session
 
 
-@app.post("/users/sign-out")
+@app.post("/users/sign-out", responses={400: {"model": ErrorMessage, "description": "Нет авторизованных пользователей"}})
 async def log_out():
     res = supabase.auth.sign_out()
+    user = supabase.auth.get_user()
 
-    return {"status": 200,
-            "res": res}
+    if user:
+        return "success"
+    else:
+        raise HTTPException(status_code=400, detail="Отсутствует пользователь")
+
 
 # Получение информации о текущей сесссии
-@app.get("/users/session")
+@app.get("/users/session", responses={400: {"model": ErrorMessage, "description": "Текущая сессия отсуствует"},
+                                                                   200: json_session})
 async def get_session():
     res = supabase.auth.get_session()
+    if res:
+        return res
+    else:
+        raise HTTPException(status_code=400, detail="Сессия не начата")
+
     
-    return {"status": 200,
-            "res": res}
 
 # Получение информации о текущем пользователе 
-@app.get("/users/user")
+@app.get("/users/user", responses={400: {"model": ErrorMessage, "description": "Нет авторизованных пользователей"},
+                                                             200: json_user})
 async def get_user():
     res = supabase.auth.get_user()
     
-    return {"status": 200,
-            "res": res}
+    if res:
+        return res
+    else:
+        raise HTTPException(status_code=400, detail="Отсутствует пользователь")
 
 
 # Вход пользователя
-@app.post("/users/sign-in")
+@app.post("/users/sign-in", responses=responses_sign_in)
 async def log_in(user: User):
 
     credentials = {
@@ -102,54 +138,44 @@ async def log_in(user: User):
 
     # TODO добавить обработку различных исключение при входе пользователя
     try:
-        #user, session = supabase.auth.sign_in_with_password(credentials)
         session = supabase.auth.sign_in_with_password(credentials)
     except AuthApiError as e:
-        return AuthApiError.to_dict(e)
+        raise HTTPException(status_code=400, detail=AuthApiError.to_dict(e)["message"])
 
-    #res = {'status': 200,
-    #       'user': user[1]}
 
     return session
-    #return res, session
 
 
-# добавление записи об опасной зоне
-@app.post("/warningZone/add")
+
+# Добавление записи об опасной зоне
+@app.post("/warningZone/add", responses={200: json_warning})
 async def add_warning_zone(warningZone: warningZone):
-    assert warningZone.secret_key == SECRET_KEY, "Wrong secret key"
-    data = supabase.table("warningZone").insert({"xCoord": warningZone.xCoord, "yCoord": warningZone.yCoord, "typeZone": warningZone.typeZone, "distance": warningZone.distance}).execute()
-    assert len(data.data) > 0
     x_p = warningZone.xCoord + warningZone.distance
     x_m = warningZone.xCoord - warningZone.distance
     y_p = warningZone.yCoord + warningZone.distance
     y_m = warningZone.yCoord - warningZone.distance
-    data_coord = supabase.table('coord').insert({"id_coord": data.data[0]['id'],"x_p": x_p, "x_m": x_m, "y_p": y_p, "y_m": y_m}).execute()
-    #print(data_coord)
+    data_coord = supabase.table('warningZone').insert({"typeZone": warningZone.typeZone, "distance": warningZone.distance,"x_p": x_p, "x_m": x_m, "y_p": y_p, "y_m": y_m}).execute()
     assert len(data_coord.data) > 0
 
+    return json.loads(data_coord.model_dump_json())
 
-@app.post("/warningZone/get")
+
+# Получение информации о подходящих зонах
+@app.post("/warningZone/get", responses={400: {"model": ErrorMessage, "description": "Нет подходящих зон"},
+                                         200: json_get_zone})
 async def get_warning_zone(userPosition: userPosition):
-    assert userPosition.secret_key == SECRET_KEY, "Wrong secret key"
-    data = supabase.table('coord').select('id_coord', count='exact').filter('x_p', 'gte', userPosition.xCoord).filter('x_m', 'lte', userPosition.xCoord).filter('y_p', 'gte', userPosition.yCoord).filter('y_m', 'lte', userPosition.yCoord).execute()
+    data = supabase.table('warningZone').select("*", count='exact').filter('x_p', 'gte', userPosition.xCoord).filter('x_m', 'lte', userPosition.xCoord).filter('y_p', 'gte', userPosition.yCoord).filter('y_m', 'lte', userPosition.yCoord).execute()
     if data.count > 0:
-        count = data.count
-        data_responce = ''
-        for i in range(0, count):
-            data_ = supabase.table('warningZone').select('*').filter('id', 'eq', data.data[0]['id_coord']).execute()
-            if i == 0:
-                data_responce = data_
-            else:
-                data_responce = data_responce + ' ' + data_
-        return data_responce
+        return json.loads(data.model_dump_json())
     else:
-        res = {'status': 200}
-        return res
+        raise HTTPException(status_code=400, detail="Координаты зон не найдены")
     
 
-@app.post("/userInfo/add")
+# Добавление нового пользователя
+@app.post("/userInfo/add", responses={200: json_user_info})
 async def add_user_info(userInfo: userInfo):
-    assert userInfo.secret_key == SECRET_KEY, "Wrong secret key"
+    #assert userInfo.secret_key == SECRET_KEY, "Wrong secret key"
     data = supabase.table("userInfo").insert({"user": userInfo.user, "currentSpeed": userInfo.currentSpeed, "xCoord": userInfo.xCoord, "yCoord": userInfo.yCoord, "allowedSpeed": userInfo.allowedSpeed}).execute()
     assert len(data.data) > 0
+
+    return json.loads(data.model_dump_json())

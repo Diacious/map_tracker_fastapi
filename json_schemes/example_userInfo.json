@@ -1,0 +1,21 @@
+{
+    "description": "Информация о добавленном пользователе",
+    "content": {
+        "application/json": {
+            "example":
+                    {
+                        "data": [
+                        {
+                            "id": 1,
+                            "user": "string",
+                            "currentSpeed": 0,
+                            "xCoord": 0,
+                            "yCoord": 0,
+                            "allowedSpeed": 0
+                        }
+                        ],
+                        "count": null
+                    }
+                }
+            }
+        }
