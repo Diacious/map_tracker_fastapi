@@ -204,7 +204,7 @@ async def add_track_info(trackInfo: trackInfo):
 async def get_track_info(user_id: str, track_id: int):
     allowedSpeed = 60
     data_ = supabase.table("trackId").select('*').filter('user_id', 'eq', user_id).filter('track_id', 'eq', track_id).execute()
-    print(data_)
+    
     if len(data_.data) == 0:
         raise HTTPException(status_code=400, detail="Данного трека не существует")
     else:   
@@ -212,7 +212,7 @@ async def get_track_info(user_id: str, track_id: int):
         if len(data.data) > 0:
             res = json.loads(data.model_dump_json())
             res['count'] = len(res['data'])
-            
+
             return res
         else:
             raise HTTPException(status_code=400, detail="На данном треке не было превышений скорости")
