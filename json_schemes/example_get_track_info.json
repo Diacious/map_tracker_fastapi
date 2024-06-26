@@ -1,5 +1,5 @@
 {
-    "description": "Информация о добавленном пользователе",
+    "description": "Информация об участках превышения скорости в 60 км/ч",
     "content": {
         "application/json": {
             "example":
@@ -7,15 +7,15 @@
                         "data": [
                         {
                             "user_id": "123dsad",
-                            "track_id": 5,
-                            "current_speed": 30,
+                            "track_id": 3,
+                            "current_speed": 75,
                             "x_coord": 0,
                             "y_coord": 0,
-                            "id": 5
+                            "id": 0
                         }
                         ],
-                        "count": null
+                        "count": 0
                     }
                 }
-            }
         }
+}

@@ -28,6 +28,8 @@ json_session = json_reader("./json_schemes/example_session.json")
 json_warning = json_reader("./json_schemes/example_warning.json")
 json_user_info = json_reader("./json_schemes/example_userInfo.json")
 json_get_zone = json_reader("./json_schemes/example_get_zone.json")
+json_get_track_id = json_reader("./json_schemes/example_get_track_id.json")
+json_get_track_info = json_reader("./json_schemes/example_get_track_info.json")
 
 class ErrorMessage(BaseModel):
     detail: str
@@ -72,6 +74,13 @@ class userInfo(BaseModel):
     allowedSpeed: float
     #secret_key: str
 
+class trackInfo(BaseModel):
+    user_id: str
+    currentSpeed: float
+    xCoord: float
+    yCoord: float
+    track_id: int
+    #secret_key: str
 
 
 # Регистрация пользователя
@@ -171,11 +180,39 @@ async def get_warning_zone(userPosition: userPosition):
         raise HTTPException(status_code=400, detail="Координаты зон не найдены")
     
 
-# Добавление нового пользователя
-@app.post("/userInfo/add", responses={200: json_user_info})
-async def add_user_info(userInfo: userInfo):
-    #assert userInfo.secret_key == SECRET_KEY, "Wrong secret key"
-    data = supabase.table("userInfo").insert({"user": userInfo.user, "currentSpeed": userInfo.currentSpeed, "xCoord": userInfo.xCoord, "yCoord": userInfo.yCoord, "allowedSpeed": userInfo.allowedSpeed}).execute()
+# Получение track_id
+@app.post("/getTrackId", responses={200: json_get_track_id})
+async def get_track_id(user_id: str):
+    data_track = supabase.table("trackId").insert({'user_id': user_id}).execute()
+    assert len(data_track.data) > 0
+
+    return json.loads(data_track.model_dump_json())
+
+
+# Добавление записи о треке
+@app.post("/trackInfo/add", responses={200: json_user_info})
+async def add_track_info(trackInfo: trackInfo):
+    #assert trackInfo.secret_key == SECRET_KEY, "Wrong secret key"
+    data = supabase.table("trackInfo").insert({"user_id": trackInfo.user_id, "track_id": trackInfo.track_id, "current_speed": trackInfo.currentSpeed, "x_coord": trackInfo.xCoord, "y_coord": trackInfo.yCoord}).execute()
     assert len(data.data) > 0
 
     return json.loads(data.model_dump_json())
+
+
+# Получение статистики по треку
+@app.post("/getTrackInfo", responses={200: json_get_track_info})
+async def get_track_info(user_id: str, track_id: int):
+    allowedSpeed = 60
+    data_ = supabase.table("trackId").select('*').filter('user_id', 'eq', user_id).filter('track_id', 'eq', track_id).execute()
+    print(data_)
+    if len(data_.data) == 0:
+        raise HTTPException(status_code=400, detail="Данного трека не существует")
+    else:   
+        data = supabase.table("trackInfo").select('*').filter('user_id', 'eq', user_id).filter('track_id', 'eq', track_id).filter('current_speed', 'gt', allowedSpeed).execute()
+        if len(data.data) > 0:
+            res = json.loads(data.model_dump_json())
+            res['count'] = len(res['data'])
+            
+            return res
+        else:
+            raise HTTPException(status_code=400, detail="На данном треке не было превышений скорости")
