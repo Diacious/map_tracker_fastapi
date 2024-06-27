@@ -31,6 +31,8 @@ json_get_zone = json_reader("./json_schemes/example_get_zone.json")
 json_get_track_id = json_reader("./json_schemes/example_get_track_id.json")
 json_get_track_info = json_reader("./json_schemes/example_get_track_info.json")
 
+json_zone = json_reader("./json_schemes/json_zone.json")
+
 class ErrorMessage(BaseModel):
     detail: str
 
@@ -170,14 +172,15 @@ async def add_warning_zone(warningZone: warningZone):
 
 
 # Получение информации о подходящих зонах
-@app.post("/warningZone/get", responses={400: {"model": ErrorMessage, "description": "Нет подходящих зон"},
+@app.get("/warningZone/get", responses={400: {"model": ErrorMessage, "description": "Нет подходящих зон"},
                                          200: json_get_zone})
-async def get_warning_zone(userPosition: userPosition):
-    data = supabase.table('warningZone').select("*", count='exact').filter('x_p', 'gte', userPosition.xCoord).filter('x_m', 'lte', userPosition.xCoord).filter('y_p', 'gte', userPosition.yCoord).filter('y_m', 'lte', userPosition.yCoord).execute()
-    if data.count > 0:
-        return json.loads(data.model_dump_json())
-    else:
-        raise HTTPException(status_code=400, detail="Координаты зон не найдены")
+async def get_warning_zone():
+    return json_zone
+    #data = supabase.table('warningZone').select("*", count='exact').filter('x_p', 'gte', userPosition.xCoord).filter('x_m', 'lte', userPosition.xCoord).filter('y_p', 'gte', userPosition.yCoord).filter('y_m', 'lte', userPosition.yCoord).execute()
+    #if data.count > 0:
+    #    return json.loads(data.model_dump_json())
+    #else:
+    #    raise HTTPException(status_code=400, detail="Координаты зон не найдены")
     
 
 # Получение track_id

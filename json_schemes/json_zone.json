@@ -1,0 +1,20 @@
+{
+    "zone_1": [
+        {
+               "latitude": 55.774330,
+               "longitude": 37.546830
+         },
+        {
+               "latitude": 55.780295,
+               "longitude": 37.551154
+         },
+        {
+                "latitude": 55.777237,
+                "longitude": 37.560993
+         },
+        {
+                "latitude": 55.771570,
+                "longitude": 37.555273
+         }
+    ]
+}
