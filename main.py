@@ -5,12 +5,11 @@ from supabase import create_client
 from fastapi import FastAPI, HTTPException
 from gotrue.errors import AuthApiError
 from pydantic import BaseModel
-
+from request_templates import User, warningZone, userPosition, userInfo, trackInfo, ErrorMessage
 load_dotenv()
 
 url = os.environ.get("SUPABASE_URL")
 key = os.environ.get("SUPABASE_KEY")
-SECRET_KEY = os.environ.get("SECRET_KEY")
 
 supabase = create_client(url, key)
 
@@ -31,10 +30,7 @@ json_get_zone = json_reader("./json_schemes/example_get_zone.json")
 json_get_track_id = json_reader("./json_schemes/example_get_track_id.json")
 json_get_track_info = json_reader("./json_schemes/example_get_track_info.json")
 
-json_zone = json_reader("./json_schemes/json_zone.json")
-
-class ErrorMessage(BaseModel):
-    detail: str
+#json_zone = json_reader("./json_schemes/json_zone.json")
 
 
 responses_sign_up = {
@@ -48,42 +44,6 @@ responses_sign_in = {
     }
 
 app = FastAPI()
-
-class User(BaseModel):
-    login: str
-    password: str 
-
-
-class warningZone(BaseModel):
-    xCoord: float
-    yCoord: float
-    typeZone: str
-    distance: float
-    #secret_key: str
-
-
-class userPosition(BaseModel):
-    xCoord: float
-    yCoord: float
-    #secret_key: str
-
-
-class userInfo(BaseModel):
-    user: str
-    currentSpeed: float
-    xCoord: float
-    yCoord: float
-    allowedSpeed: float
-    #secret_key: str
-
-class trackInfo(BaseModel):
-    user_id: str
-    currentSpeed: float
-    xCoord: float
-    yCoord: float
-    track_id: int
-    #secret_key: str
-
 
 # Регистрация пользователя
 @app.post("/users/sign-up", responses=responses_sign_up)
@@ -125,7 +85,6 @@ async def get_session():
         raise HTTPException(status_code=400, detail="Сессия не начата")
 
     
-
 # Получение информации о текущем пользователе 
 @app.get("/users/user", responses={400: {"model": ErrorMessage, "description": "Нет авторизованных пользователей"},
                                                              200: json_user})
@@ -157,8 +116,8 @@ async def log_in(user: User):
     return session
 
 
-
 # Добавление записи об опасной зоне
+# Deprecated
 @app.post("/warningZone/add", responses={200: json_warning})
 async def add_warning_zone(warningZone: warningZone):
     x_p = warningZone.xCoord + warningZone.distance
@@ -175,12 +134,24 @@ async def add_warning_zone(warningZone: warningZone):
 @app.get("/warningZone/get", responses={400: {"model": ErrorMessage, "description": "Нет подходящих зон"},
                                          200: json_get_zone})
 async def get_warning_zone():
-    return json_zone
-    #data = supabase.table('warningZone').select("*", count='exact').filter('x_p', 'gte', userPosition.xCoord).filter('x_m', 'lte', userPosition.xCoord).filter('y_p', 'gte', userPosition.yCoord).filter('y_m', 'lte', userPosition.yCoord).execute()
-    #if data.count > 0:
-    #    return json.loads(data.model_dump_json())
-    #else:
-    #    raise HTTPException(status_code=400, detail="Координаты зон не найдены")
+    res_base = json.loads(supabase.table("zoneInfo").select('*').execute().model_dump_json())
+
+    res_new = {}
+
+    for row in res_base['data']:
+        if res_new.get(row['name']):
+            res_new[row['name']].append({"latitude": row['lat'], 
+                                        "longitude": row['long']})
+        else:
+            res_new[row['name']] = [{"latitude": row['lat'], 
+                                    "longitude": row['long']}]
+
+    res_json = {"geozone": []}
+
+    for name, coords in res_new.items():
+        res_json['geozone'].append({"name": name,
+                                    "coords": coords})
+    return res_json
     
 
 # Получение track_id
